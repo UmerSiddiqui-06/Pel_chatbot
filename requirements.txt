@@ -1,0 +1,5 @@
+# PEL RAG — Phase 1: Document Ingestion Dependencies
+# Install these AFTER activating your conda environment
+
+docling>=2.0.0
+pandas
