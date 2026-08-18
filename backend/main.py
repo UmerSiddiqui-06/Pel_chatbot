@@ -8,6 +8,9 @@ from sqlalchemy import text
 
 from database import engine
 
+from fastapi.middleware.cors import CORSMiddleware
+
+
 app = FastAPI(title="PEL AI Knowledge Agent API")
 
 app.add_middleware(
