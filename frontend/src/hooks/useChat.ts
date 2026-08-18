@@ -82,7 +82,7 @@ export function useChat() {
                   messages: [
                     ...c.messages,
                     {
-                      id: `m_${Date.now()}`,
+                      id: res.message_id,          // was: `m_${Date.now()}`
                       role: "assistant" as const,
                       text: res.answer,
                       sources: res.sources,

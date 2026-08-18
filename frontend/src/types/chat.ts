@@ -42,4 +42,5 @@ export interface ChatResponse {
   answer: string;
   sources: Source[];
   conversation_id: string;
+  message_id: string;
 }
