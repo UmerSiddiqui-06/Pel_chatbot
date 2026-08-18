@@ -128,8 +128,8 @@ def send_message(payload: ChatRequest, db: Session = Depends(get_db)):
         sources=result["sources"],
         is_empty=len(result["sources"]) == 0,
     )
-    db.add(assistant_msg)
 
+    db.add(assistant_msg)
     convo.updated_at = datetime.now(timezone.utc)
     db.commit()
 
@@ -137,6 +137,7 @@ def send_message(payload: ChatRequest, db: Session = Depends(get_db)):
         answer=result["answer"],
         sources=[SourceSchema(**s) for s in result["sources"]],
         conversation_id=convo.id,
+        message_id=assistant_msg.id,
     )
 
 

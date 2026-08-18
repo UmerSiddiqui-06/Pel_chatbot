@@ -40,6 +40,7 @@ class ChatResponse(BaseModel):
     answer: str
     sources: List[SourceSchema]
     conversation_id: str
+    message_id: str
 
 
 class RenameRequest(BaseModel):
