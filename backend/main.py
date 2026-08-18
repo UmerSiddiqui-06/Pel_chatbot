@@ -1,12 +1,14 @@
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Literal, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from database import engine
+from database import engine, SessionLocal
+from models import Conversation as ConversationModel
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -161,6 +163,14 @@ def sorted_conversations() -> List[Conversation]:
     return sorted(conversations.values(), key=lambda c: c.updatedAt, reverse=True)
 
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 def generate_answer(question: str) -> dict:
     lowered = question.lower()
 
@@ -269,3 +279,12 @@ def send_message(payload: ChatRequest):
 def send_feedback(message_id: str, payload: FeedbackRequest):
     feedback_events.append({"message_id": message_id, "value": payload.value, "createdAt": now_iso()})
     return None
+
+
+@app.post("/test-conversation")
+def create_test_conversation(db: Session = Depends(get_db)):
+    convo = ConversationModel(title="Test conversation")
+    db.add(convo)
+    db.commit()
+    db.refresh(convo)
+    return {"id": convo.id, "title": convo.title, "created_at": convo.created_at}
