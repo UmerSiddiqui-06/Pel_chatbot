@@ -1,12 +1,18 @@
 import { useState } from "react";
-import { Bot, Copy, ThumbsUp, ThumbsDown, Check } from "lucide-react";
+import { Copy, ThumbsUp, ThumbsDown, Check } from "lucide-react";
 import type { ChatMessage, FeedbackValue } from "../../types/chat";
 import { SourceList } from "./SourceList";
+import { PelMark } from "../branding/PelMark";
 
 interface Props {
   message: ChatMessage;
   onFeedback: (messageId: string, value: FeedbackValue) => void;
 }
+
+// Sharp-cut top corner on the sender's side — the one geometric "tell" on
+// each bubble, echoing the rotated-square mark without repeating it outright.
+const userClip = { clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)" };
+const assistantClip = { clipPath: "polygon(14px 0, 100% 0, 100% 100%, 0 100%, 0 14px)" };
 
 export function ChatMessageBubble({ message, onFeedback }: Props) {
   const [copied, setCopied] = useState(false);
@@ -15,7 +21,10 @@ export function ChatMessageBubble({ message, onFeedback }: Props) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-lg rounded-2xl rounded-tr-sm bg-pel-600 px-4 py-2.5 text-sm text-white whitespace-pre-wrap">
+        <div
+          style={userClip}
+          className="max-w-lg rounded-2xl bg-gradient-to-br from-pel-500 to-pel-700 px-4 py-2.5 text-sm text-white whitespace-pre-wrap shadow-sm shadow-pel-900/20"
+        >
           {message.text}
         </div>
       </div>
@@ -34,22 +43,18 @@ export function ChatMessageBubble({ message, onFeedback }: Props) {
   };
 
   const toneClasses = message.isError
-    ? "bg-red-50 text-red-800 ring-1 ring-red-200"
+    ? "bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-200 ring-1 ring-red-200 dark:ring-red-900"
     : message.isEmpty
-    ? "bg-amber-50 text-amber-900 ring-1 ring-amber-200"
-    : "bg-white text-slate-800 ring-1 ring-slate-200";
+    ? "bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 ring-1 ring-amber-200 dark:ring-amber-900"
+    : "bg-white dark:bg-ink-800 text-ink-800 dark:text-ink-100 ring-1 ring-ink-100 dark:ring-ink-700";
 
   return (
-    <div className="flex justify-start">
+    <div className="flex justify-start gap-2.5">
+      <PelMark size={26} className="mt-0.5 shrink-0" />
       <div className="max-w-xl">
-        <div className="flex items-center gap-2 mb-1.5">
-          <div className="h-6 w-6 rounded-md bg-pel-600 flex items-center justify-center">
-            <Bot className="h-3.5 w-3.5 text-white" />
-          </div>
-          <span className="text-xs font-medium text-slate-500">PEL AI</span>
-        </div>
+        <p className="text-xs font-medium text-ink-400 dark:text-ink-500 mb-1.5">PEL AI</p>
 
-        <div className={`rounded-2xl rounded-tl-sm px-4 py-3 text-sm whitespace-pre-wrap ${toneClasses}`}>
+        <div style={assistantClip} className={`px-4 py-3 text-sm whitespace-pre-wrap ${toneClasses}`}>
           {message.text}
           <SourceList sources={message.sources} />
         </div>
@@ -59,7 +64,7 @@ export function ChatMessageBubble({ message, onFeedback }: Props) {
             <button
               type="button"
               onClick={handleCopy}
-              className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"
+              className="flex items-center gap-1 text-xs text-ink-400 dark:text-ink-500 hover:text-ink-600 dark:hover:text-ink-300"
             >
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
               {copied ? "Copied" : "Copy"}
@@ -68,7 +73,9 @@ export function ChatMessageBubble({ message, onFeedback }: Props) {
               type="button"
               onClick={() => handleFeedback("helpful")}
               className={`flex items-center gap-1 text-xs ${
-                feedback === "helpful" ? "text-emerald-600" : "text-slate-400 hover:text-slate-600"
+                feedback === "helpful"
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-ink-400 dark:text-ink-500 hover:text-ink-600 dark:hover:text-ink-300"
               }`}
             >
               <ThumbsUp className="h-3 w-3" /> Helpful
@@ -77,7 +84,9 @@ export function ChatMessageBubble({ message, onFeedback }: Props) {
               type="button"
               onClick={() => handleFeedback("not_helpful")}
               className={`flex items-center gap-1 text-xs ${
-                feedback === "not_helpful" ? "text-red-600" : "text-slate-400 hover:text-slate-600"
+                feedback === "not_helpful"
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-ink-400 dark:text-ink-500 hover:text-ink-600 dark:hover:text-ink-300"
               }`}
             >
               <ThumbsDown className="h-3 w-3" /> Not helpful
