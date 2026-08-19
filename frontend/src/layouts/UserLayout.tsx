@@ -2,11 +2,14 @@ import type { ReactNode } from "react";
 import pelLogo from "../assets/pel-logo.png";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { AmbientGlow } from "../components/branding/AmbientGlow";
-import { useTheme } from "../hooks/useTheme";
 
-export function UserLayout({ children }: { children: ReactNode }) {
-  const { theme, toggleTheme } = useTheme();
+interface Props {
+  children: ReactNode;
+  theme: "light" | "dark";
+  toggleTheme: () => void;
+}
 
+export function UserLayout({ children, theme, toggleTheme }: Props) {
   return (
     <div className="h-screen w-full flex flex-col bg-porcelain dark:bg-ink-950 font-sans transition-colors duration-300 animate-rise-in">
       <AmbientGlow />

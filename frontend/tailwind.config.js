@@ -19,20 +19,20 @@ export default {
           900: "#0d456c",
           950: "#082c47",
         },
-        // Near-black graphite (not slate) — the glossy-black ground from the
-        // product photography, used for dark-mode surfaces and the splash.
+        // Moderate charcoal graphite (not slate, not near-black) — used for
+        // dark-mode surfaces and the splash.
         ink: {
           50: "#f4f6f8",
           100: "#e6eaef",
-          200: "#c3ccd6",
-          300: "#8f9bab",
-          400: "#5b6779",
-          500: "#3c4657",
-          600: "#272f3d",
-          700: "#1a202b",
-          800: "#12161d",
-          900: "#0b0e13",
-          950: "#05070a",
+          200: "#ccd2da",
+          300: "#a7b0bd",
+          400: "#7c8798",
+          500: "#556074",
+          600: "#3c4658",
+          700: "#2f3846",
+          800: "#232a36",
+          900: "#1b212b",
+          950: "#14181f",
         },
         // cool off-white for light-mode ground (deliberately not cream)
         porcelain: "#f5f7fa",
@@ -52,10 +52,6 @@ export default {
           "0%, 100%": { opacity: "0.55", transform: "scale(1)" },
           "50%": { opacity: "0.85", transform: "scale(1.08)" },
         },
-        "iris-wipe": {
-          "0%": { clipPath: "circle(0% at 50% 50%)" },
-          "100%": { clipPath: "circle(150% at 50% 50%)" },
-        },
         "rise-in": {
           "0%": { opacity: "0", transform: "translateY(10px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
@@ -64,7 +60,6 @@ export default {
       animation: {
         "mark-in": "mark-in 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
         "glow-breathe": "glow-breathe 3.2s ease-in-out infinite",
-        "iris-wipe": "iris-wipe 900ms cubic-bezier(0.65, 0, 0.35, 1) forwards",
         "rise-in": "rise-in 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
       },
     },

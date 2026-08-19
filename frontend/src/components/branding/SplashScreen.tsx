@@ -2,40 +2,53 @@ import { useEffect, useState } from "react";
 import { PelMark } from "./PelMark";
 
 interface Props {
+  theme: "light" | "dark";
   onFinished: () => void;
 }
 
 /**
- * Orchestrated load sequence, deliberately one moment rather than several
- * scattered effects: mark scales/fades in over a breathing glow (900ms),
- * holds briefly, then the whole scrim iris-wipes open from center to
- * reveal the chat shell already mounted underneath it.
+ * Orchestrated load sequence: mark scales/fades in over a breathing glow,
+ * holds briefly, then the whole scrim fades to transparent (not a wipe —
+ * a wipe reads as a "loading complete" transition; a fade reads as the
+ * mark settling into the interface, which is the effect we want here).
+ * Colors follow the live theme so it never shows dark-on-dark or
+ * light-on-light regardless of what the user last picked.
  */
-export function SplashScreen({ onFinished }: Props) {
-  const [wiping, setWiping] = useState(false);
+export function SplashScreen({ theme, onFinished }: Props) {
+  const [visible, setVisible] = useState(true);
+  const isDark = theme === "dark";
 
   useEffect(() => {
-    const holdTimer = setTimeout(() => setWiping(true), 1150);
-    const doneTimer = setTimeout(onFinished, 1150 + 900);
-    return () => {
-      clearTimeout(holdTimer);
-      clearTimeout(doneTimer);
-    };
-  }, [onFinished]);
+    const timer = setTimeout(() => setVisible(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-ink-950 ${
-        wiping ? "animate-iris-wipe" : ""
-      }`}
+      onTransitionEnd={(e) => {
+        if (e.propertyName === "opacity" && !visible) onFinished();
+      }}
+      className={`fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-700 ease-out ${
+        visible ? "opacity-100" : "opacity-0 pointer-events-none"
+      } ${isDark ? "bg-ink-950" : "bg-porcelain"}`}
     >
       <div className="relative flex items-center justify-center">
-        <div className="absolute h-56 w-56 rounded-full bg-pel-500/40 blur-3xl animate-glow-breathe" />
+        <div
+          className={`absolute h-56 w-56 rounded-full blur-3xl animate-glow-breathe ${
+            isDark ? "bg-pel-500/40" : "bg-pel-400/25"
+          }`}
+        />
         <PelMark size={88} animated className="relative" />
       </div>
       <div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-center">
-        <p className="font-display text-sm tracking-[0.3em] text-ink-200 uppercase">PEL AI</p>
-        <p className="text-xs text-ink-400 mt-1">Knowledge Assistant</p>
+        <p
+          className={`font-display text-sm tracking-[0.3em] uppercase ${
+            isDark ? "text-ink-200" : "text-ink-700"
+          }`}
+        >
+          PEL AI
+        </p>
+        <p className={`text-xs mt-1 ${isDark ? "text-ink-400" : "text-ink-500"}`}>Knowledge Assistant</p>
       </div>
     </div>
   );
