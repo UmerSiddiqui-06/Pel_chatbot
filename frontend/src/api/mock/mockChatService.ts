@@ -122,7 +122,7 @@ export const mockChatService = {
       c.id === conversationId ? { ...c, updatedAt: new Date().toISOString(), messages: [...c.messages, assistantMsg] } : c
     );
 
-    return { answer, sources, conversation_id: conversationId };
+    return { answer, sources, conversation_id: conversationId, message_id: assistantMsg.id };
   },
 
   async sendFeedback(messageId: string, value: FeedbackValue): Promise<void> {
