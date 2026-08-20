@@ -1,5 +1,14 @@
-/input
-/output
-/__pycache__
+input/
+output/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+
+# Local environment files; keep example templates trackable
 .env
+
+
+# Legacy backup module (current filename is misspelled; cover corrected spelling too)
 bakcup_old_model.py
+backup_old_model.py
