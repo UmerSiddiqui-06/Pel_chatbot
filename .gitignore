@@ -1,2 +1,5 @@
 /input
 /output
+/__pycache__
+.env
+bakcup_old_model.py

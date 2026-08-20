@@ -1,21 +1,11 @@
-# Stage 1-5 (parsing, continuation resolution, classification, chunking,
-# metadata tagging) use only the Python standard library -- no dependencies
-# needed yet.
-#
-# Uncomment these when we build Stage 6 onward (embeddings, ChromaDB,
-# reranking, query understanding):
-#
-# chromadb
-# sentence-transformers
-# anthropic
-
-
-
-# Phase 1 uses ONLY the Python standard library (re, json, pathlib).
-# tqdm is optional — it just draws a progress bar.
+# Phase 1 (stdlib only)
 tqdm>=4.66.0
 
-# Phase 2+ (uncomment later):
-# chromadb>=0.5.0
-# sentence-transformers>=3.0.0
-# rank-bm25>=0.2.2
+# Phase 2: Embedding & Indexing
+chromadb>=0.5.0
+sentence-transformers>=3.0.0
+rank-bm25>=0.2.2
+numpy>=1.26.0
+
+google-genai>=1.0.0
+python-dotenv>=1.0.0
