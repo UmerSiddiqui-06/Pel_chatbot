@@ -35,16 +35,16 @@ CHROMA_COLLECTION = "pel_manual_chunks"
 # Gemini API — lightweight models for query understanding (fast & cheap)
 # Uses the SAME exact model names & SDK pattern as your PDF extraction script
 QUERY_UNDERSTANDING_MODELS = [
-    "gemini-3.5-flash-lite",    # lightest, cheapest — primary
-    "gemini-3-flash-preview",   # preview fallback
-    "gemini-3.5-flash",         # standard fallback
+    "gemini-3.5-flash-lite",     # primary — keep, fastest+cheapest, good extraction
+    "gemini-3.1-flash-lite",     # fallback 1 — stable long-term, won't vanish
+    "gemini-3.5-flash",          # fallback 2 — stronger if both lite models rate-limited
 ]
 
 # Gemini API — strong models for answer generation (quality)
 ANSWER_GENERATION_MODELS = [
-    "gemini-3.7-flash",         # best reasoning — primary
-    "gemini-3.6-flash",         # fast but capable — fallback 1
-    "gemini-3.5-flash",         # last resort — fallback 2
+    "gemini-3.6-flash",         # primary — strongest current flash, good agentic/reasoning
+    "gemini-3.5-flash",         # fallback 1 — still solid quality
+    "gemini-3.5-flash-lite",    # fallback 2 — last resort, only if both above fail
 ]
 
 # Cross-Encoder Reranker
