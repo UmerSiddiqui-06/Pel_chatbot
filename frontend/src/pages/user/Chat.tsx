@@ -12,6 +12,7 @@ export function ChatPage() {
     conversations,
     activeConversation,
     loadingList,
+    backendReady,
     sending,
     error,
     selectConversation,
@@ -33,6 +34,7 @@ export function ChatPage() {
         conversations={conversations}
         activeId={activeConversation?.id ?? null}
         loading={loadingList}
+        backendReady={backendReady}
         onSelect={selectConversation}
         onNew={newConversation}
         onDelete={deleteConversation}

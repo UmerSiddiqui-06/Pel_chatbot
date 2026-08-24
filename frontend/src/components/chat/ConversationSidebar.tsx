@@ -5,18 +5,21 @@ interface Props {
   conversations: Conversation[];
   activeId: string | null;
   loading: boolean;
+  backendReady: boolean;
   onSelect: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
 }
 
-export function ConversationSidebar({ conversations, activeId, loading, onSelect, onNew, onDelete }: Props) {
+export function ConversationSidebar({ conversations, activeId, loading, backendReady, onSelect, onNew, onDelete }: Props) {
   return (
     <div className="w-64 shrink-0 border-r border-ink-100 dark:border-ink-800 bg-white/60 dark:bg-ink-900/60 backdrop-blur-md flex flex-col">
       <div className="p-3">
         <button
           type="button"
           onClick={onNew}
+          disabled={!backendReady}
+          title={!backendReady ? "Waiting for the PEL AI backend" : "Start a new chat"}
           className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-pel-500 to-pel-700 text-white text-sm font-medium py-2.5 shadow-sm shadow-pel-900/20 hover:shadow-md hover:shadow-pel-900/30 hover:-translate-y-px transition-all"
         >
           <Plus className="h-4 w-4" /> New chat
@@ -29,7 +32,9 @@ export function ConversationSidebar({ conversations, activeId, loading, onSelect
 
       <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
         {loading && (
-          <p className="text-xs text-ink-400 dark:text-ink-500 px-2 py-4 text-center">Loading conversations...</p>
+          <p className="text-xs text-ink-400 dark:text-ink-500 px-2 py-4 text-center">
+            Preparing PEL AI...
+          </p>
         )}
 
         {!loading && conversations.length === 0 && (

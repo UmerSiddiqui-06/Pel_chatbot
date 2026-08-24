@@ -1,10 +1,15 @@
-"""
-Stand-in for the real AI agent (RAG + LLM). Your teammate replaces the
-inside of `generate_answer` with their actual pipeline later — the rest
-of the backend only ever calls this one function, so nothing else needs
-to change when that happens.
-"""
-from typing import List, TypedDict
+"""Backend adapter for the fixed, pre-indexed PEL Phase 3 RAG pipeline."""
+from pathlib import Path
+import sys
+from threading import Lock
+from typing import TYPE_CHECKING, List, TypedDict
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+if TYPE_CHECKING:
+    from phase3_rag_engine import Phase3Pipeline
 
 
 class SourceDict(TypedDict, total=False):
@@ -18,28 +23,38 @@ class AgentResult(TypedDict):
     sources: List[SourceDict]
 
 
-def generate_answer(question: str) -> AgentResult:
-    lowered = question.lower()
+_pipeline: "Phase3Pipeline | None" = None
+_pipeline_lock = Lock()
 
-    if "warrant" in lowered:
-        return {
-            "answer": "PEL air conditioners are covered by a two-year warranty on the compressor and major components, according to the available PEL documentation.",
-            "sources": [{"title": "Warranty Policy", "page": 4}],
-        }
 
-    if "leave" in lowered:
-        return {
-            "answer": "Confirmed employees are entitled to 18 annual leave days per calendar year. Leave requests should be submitted at least three working days in advance.",
-            "sources": [{"title": "Employee Leave Policy", "page": 6}],
-        }
+def _get_pipeline() -> "Phase3Pipeline":
+    global _pipeline
+    if _pipeline is None:
+        with _pipeline_lock:
+            if _pipeline is None:
+                from phase3_rag_engine import Phase3Pipeline
 
-    if "order" in lowered or "status" in lowered:
-        return {
-            "answer": "I can look up order status once this is connected to PEL's order-management system.",
-            "sources": [{"title": "Product Database", "section": "Orders"}],
-        }
+                _pipeline = Phase3Pipeline()
+    return _pipeline
 
-    return {
-        "answer": "I couldn't find a confident answer in PEL's indexed documentation for that. Try rephrasing your question, or check back once more documents have been indexed.",
-        "sources": [],
-    }
+
+def initialize() -> None:
+    """Load the Phase 3 indexes and model weights before serving requests."""
+    print("\n🚀 Initializing PEL Phase 3 knowledge agent...", flush=True)
+    _get_pipeline()
+    print("✅ PEL Phase 3 knowledge agent is ready for queries", flush=True)
+
+
+def generate_answer(question: str, conversation_id: str = "default") -> AgentResult:
+    """Run the same Phase 3 pipeline used by the terminal chatbot."""
+    result = _get_pipeline().run(question)
+    sources = []
+    for chunk in result.get("top_chunks", []):
+        metadata = chunk.metadata
+        sources.append({
+            "title": metadata.get("title", "PEL Technical Manual"),
+            "page": metadata.get("page_start"),
+            "section": metadata.get("section") or metadata.get("title"),
+        })
+
+    return {"answer": result["answer"], "sources": sources}

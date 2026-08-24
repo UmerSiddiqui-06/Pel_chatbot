@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Copy, ThumbsUp, ThumbsDown, Check } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import type { ChatMessage, FeedbackValue } from "../../types/chat";
 import { SourceList } from "./SourceList";
 import { PelMark } from "../branding/PelMark";
@@ -54,8 +55,22 @@ export function ChatMessageBubble({ message, onFeedback }: Props) {
       <div className="max-w-xl">
         <p className="text-xs font-medium text-ink-400 dark:text-ink-500 mb-1.5">PEL AI</p>
 
-        <div style={assistantClip} className={`px-4 py-3 text-sm whitespace-pre-wrap ${toneClasses}`}>
-          {message.text}
+        <div style={assistantClip} className={`px-4 py-3 text-sm ${toneClasses}`}>
+          <ReactMarkdown
+            components={{
+              h1: ({ children }) => <h1 className="text-base font-semibold mb-2">{children}</h1>,
+              h2: ({ children }) => <h2 className="text-base font-semibold mt-3 mb-1.5">{children}</h2>,
+              h3: ({ children }) => <h3 className="text-sm font-semibold mt-3 mb-1.5">{children}</h3>,
+              p: ({ children }) => <p className="leading-6 mb-2 last:mb-0">{children}</p>,
+              ul: ({ children }) => <ul className="list-disc pl-5 space-y-1 mb-2 last:mb-0">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal pl-5 space-y-1 mb-2 last:mb-0">{children}</ol>,
+              li: ({ children }) => <li className="pl-1">{children}</li>,
+              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              hr: () => <div className="my-3 border-t border-ink-100 dark:border-ink-700" />,
+            }}
+          >
+            {message.text}
+          </ReactMarkdown>
           <SourceList sources={message.sources} />
         </div>
 

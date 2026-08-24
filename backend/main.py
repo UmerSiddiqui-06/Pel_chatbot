@@ -38,6 +38,12 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def initialize_knowledge_agent():
+    """Warm the RAG pipeline before the API starts accepting requests."""
+    agent.initialize()
+
+
 def get_db():
     db = SessionLocal()
     try:
@@ -106,6 +112,9 @@ def delete_conversation(conversation_id: str, db: Session = Depends(get_db)):
 
 @app.post("/chat", response_model=ChatResponse)
 def send_message(payload: ChatRequest, db: Session = Depends(get_db)):
+    if not payload.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
     convo = db.query(ConversationModel).filter(ConversationModel.id == payload.conversation_id).first()
     if convo is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -118,20 +127,26 @@ def send_message(payload: ChatRequest, db: Session = Depends(get_db)):
     if is_first_message:
         convo.title = payload.message[:32]
 
-    # This is the line your friend's RAG model plugs into later.
-    result = agent.generate_answer(payload.message)
+    try:
+        result = agent.generate_answer(
+            payload.message,
+            conversation_id=str(convo.id),
+        )
 
-    assistant_msg = MessageModel(
-        conversation_id=convo.id,
-        role="assistant",
-        text=result["answer"],
-        sources=result["sources"],
-        is_empty=len(result["sources"]) == 0,
-    )
+        assistant_msg = MessageModel(
+            conversation_id=convo.id,
+            role="assistant",
+            text=result["answer"],
+            sources=result["sources"],
+            is_empty=len(result["sources"]) == 0,
+        )
 
-    db.add(assistant_msg)
-    convo.updated_at = datetime.now(timezone.utc)
-    db.commit()
+        db.add(assistant_msg)
+        convo.updated_at = datetime.now(timezone.utc)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="The PEL knowledge agent is temporarily unavailable") from exc
 
     return ChatResponse(
         answer=result["answer"],
