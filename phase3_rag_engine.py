@@ -136,6 +136,10 @@ class GeminiClient:
 
         for model_name in self.model_names:
             for attempt in range(1, max_attempts + 1):
+                print(
+                    f"   🤖 Gemini request: model={model_name}, attempt={attempt}/{max_attempts}",
+                    flush=True,
+                )
                 try:
                     config = self.types.GenerateContentConfig(
                         temperature=temperature,
@@ -153,6 +157,18 @@ class GeminiClient:
                     if not response.text:
                         raise RuntimeError(f"Empty response from {model_name}")
 
+                    finish_reason = None
+                    if getattr(response, "candidates", None):
+                        finish_reason = getattr(response.candidates[0], "finish_reason", None)
+                    print(
+                        f"   ✅ Gemini success: model={model_name}, response_chars={len(response.text)}, finish_reason={finish_reason}",
+                        flush=True,
+                    )
+                    if finish_reason and str(finish_reason).upper().endswith("MAX_TOKENS"):
+                        print(
+                            f"   ⚠️  Gemini output reached the token limit for model={model_name}",
+                            flush=True,
+                        )
                     return response.text
 
                 except Exception as e:
@@ -172,10 +188,16 @@ class GeminiClient:
 
                     if is_rate_limited or is_unavailable:
                         reason = "rate limited" if is_rate_limited else "unavailable"
-                        print(f"   ⚠️  {model_name} {reason}; trying next model")
+                        print(
+                            f"   ⚠️  Gemini failure: model={model_name}, reason={reason}, error={err[:300]}",
+                            flush=True,
+                        )
                         break
 
-                    print(f"   ⚠️  Attempt {attempt} with {model_name} failed: {err[:120]}...")
+                    print(
+                        f"   ⚠️  Gemini failure: model={model_name}, attempt={attempt}, error={err[:300]}",
+                        flush=True,
+                    )
 
                     if attempt < max_attempts:
                         time.sleep(retry_delay)
@@ -454,6 +476,32 @@ class Retriever:
         """Fetch full chunk data by ID."""
         return self.chunks_by_id.get(chunk_id)
 
+    def catalog_search(self, product_category: Optional[str]) -> List[Dict]:
+        """Return overview and series passages for broad product-range questions."""
+        if not product_category or product_category == "general":
+            return []
+
+        catalog_chunks = []
+        for chunk in self.chunks_by_id.values():
+            metadata = chunk.get("metadata", {})
+            title = metadata.get("title", "")
+            is_same_category = metadata.get("product_category") == product_category
+            is_overview = "subcategories" in title.lower()
+            is_series = (
+                "models" not in title.lower()
+                and bool(re.search(r">\s*[1-6]\.\s+[^>]*series", title, re.IGNORECASE))
+            )
+            if is_same_category and (is_overview or is_series):
+                catalog_chunks.append(chunk)
+
+        return sorted(
+            catalog_chunks,
+            key=lambda chunk: (
+                chunk.get("metadata", {}).get("page_start") or 0,
+                chunk.get("chunk_id", ""),
+            ),
+        )
+
 
 # ════════════════════════════════════════════════════════════════════════
 # RECIPROCAL RANK FUSION (RRF)
@@ -497,7 +545,7 @@ class RRFFusion:
 class CrossEncoderReranker:
     """
     Re-ranks fused candidates using BAAI/bge-reranker-v2-m3.
-    This is the heavy-lifter that ensures the top-5 are truly relevant.
+    This is the heavy-lifter that ensures the top-7 are truly relevant.
     """
 
     def __init__(self, model_name: str = config.RERANKER_MODEL):
@@ -514,7 +562,7 @@ class CrossEncoderReranker:
         self,
         query: str,
         chunks: List[Dict],
-        top_k: int = 5,
+        top_k: int = 7,
     ) -> List[RetrievedChunk]:
         if not chunks:
             return []
@@ -545,12 +593,12 @@ class CrossEncoderReranker:
 class AnswerGenerator:
     """
     Generates the final answer using strong Gemini models.
-    Fed with top-5 reranked chunks as context.
+    Fed with top-7 reranked chunks as context.
     """
 
     SYSTEM_PROMPT = """You are PEL Technical Support AI, the official technical assistant for Pakistan Electronics Limited (PEL) appliances: air conditioners, refrigerators, LED TVs, washing machines, microwave ovens, water dispensers, and deep freezers.
 
-You will be given the user's query (original + English translation) and context chunks from the PEL service manual, each labeled with [chunk_id], Page, and Section title.
+You will be given the user's query (original + English translation) and evidence passages from the PEL service manual, each labeled with an internal passage number, page number, and section title. These labels are for your reasoning only and must never appear in your answer.
 
 STEP 1 — IDENTIFY EACH CHUNK'S PRODUCT CATEGORY (do this first, silently, before drafting anything)
 - The chunks are not pre-labeled by product category, so read each chunk's title and text carefully and determine for yourself which appliance it belongs to (AC, Refrigerator, Deep Freezer, LED TV, Washing Machine, Microwave Oven, Water Dispenser).
@@ -561,20 +609,22 @@ STEP 2 — FILTER TO THE USER'S ACTUAL PRODUCT
 - Keep only the chunks that your Step 1 reading confirms belong to that same product. Discard chunks about a different appliance even if they share the model name/code — do not use them, and do not mention them.
 - If the query is genuinely ambiguous (could mean either product) and matching chunks exist for more than one, do not blend them into one answer. Either ask the user to confirm which appliance they mean, or clearly separate the answer under headers per product (e.g. "### Refrigerator" / "### Deep Freezer") — never merge specs or steps from two different appliances into a single explanation.
 
-STEP 3 — ANSWER USING ONLY THE FILTERED CHUNKS
-- Base your answer strictly on the chunks that passed Step 2. Never invent model numbers, error codes, specs, or steps, and never pull in details from a chunk you filtered out.
-- If the filtered chunks don't actually cover the question, say plainly: "I don't have enough information in the manual to answer this." Do not borrow from a wrong-product chunk to fill the gap.
+STEP 3 — ANSWER USING ONLY THE FILTERED EVIDENCE
+- Base your answer strictly on the passages that passed Step 2. Never invent model numbers, error codes, specifications, causes, or steps, and never pull in details from a passage you filtered out.
+- If the filtered passages do not actually cover the question, say plainly: "I don't have enough information in the manual to answer this." Do not borrow from a wrong-product passage to fill the gap.
 
-STEP 4 — EXPLAIN, DON'T JUST QUOTE
-- Rewrite the relevant information in your own clear words, like a technician explaining it — don't paste chunk text with light edits.
-- Troubleshooting/error codes: state (a) what it means in plain language, (b) likely cause(s), (c) numbered fix steps in the order to try them.
-- Specifications: give exact numbers from the context (never round or guess), as a short table or labeled bullets.
-- Installation: numbered steps, with a short "why this matters" note on steps that are easy to get wrong.
-- Add a brief concrete example only when it stays faithful to the manual content — never speculative.
+STEP 4 — EXPLAIN FULLY, NOT AS A FRAGMENT
+- Rewrite the relevant information in your own clear words, like a technician explaining it. Do not merely mention a few matching facts or paste the passage.
+- Give a complete answer with enough context to be useful: directly answer the question, explain the relevant meaning or cause, and include all supported conditions, warnings, exceptions, and next steps.
+- Troubleshooting/error codes: state (a) what it means in plain language, (b) likely cause(s), (c) practical checks, and (d) numbered fix steps in the order to try them. Include a safety boundary when the manual supports one.
+- Specifications: give exact numbers and units from the context (never round or guess), with a short table or labeled bullets, and distinguish model-specific values.
+- Installation or operating instructions: provide complete numbered steps, including prerequisites and a short "why this matters" note where the manual makes the point easy to miss.
+- Use headings and bullets when they improve scanning. Do not pad the answer with repetition or unsupported advice.
+- Add a concrete example only when it stays faithful to the manual content; never speculate.
 
-STEP 5 — CITE PRECISELY
-- Cite [chunk_id] right after the specific fact it supports, not just once at the end.
-- Multiple chunks used → cite each one where its fact appears.
+STEP 5 — KEEP THE ANSWER CLEAN
+- Do not place page numbers, source labels, chunk IDs, passage IDs, retrieval IDs, or evidence labels inside the answer. Source pages will be shown separately below the answer by the application.
+- Do not add a references section or a citations list.
 
 STYLE
 - Answer in the SAME language/script as the user's original query (Roman Urdu stays in Roman letters unless the user wrote Urdu script).
@@ -589,14 +639,14 @@ STYLE
     def _build_context(self, chunks: List[RetrievedChunk]) -> str:
         """Build context string from top chunks, truncating to avoid token overflow."""
         parts = []
-        for ch in chunks:
+        for index, ch in enumerate(chunks, 1):
             # Truncate text to stay within token budget
             text = ch.text[:config.MAX_CHUNK_CONTEXT_CHARS]
             meta = ch.metadata
             title = meta.get("title", "Unknown Section")
             pages = meta.get("page_start", "?")
             parts.append(
-                f"--- CHUNK [{ch.chunk_id}] (Page {pages}, Section: {title}) ---\n{text}"
+                f"--- EVIDENCE PASSAGE {index} (Page {pages}, Section: {title}) ---\n{text}"
             )
         return "\n\n".join(parts)
 
@@ -621,8 +671,11 @@ CONTEXT FROM PEL TECHNICAL MANUAL:
 INSTRUCTIONS:
 - Answer the user's question based ONLY on the context above.
 - Respond in {language}.
-- Cite chunk IDs like [pel_0001] when referencing facts.
-- If the answer is not in the context, say you don't know.
+- Give a complete, detailed, technically useful answer rather than a short list of mentions.
+- For catalog or "all series" questions, first enumerate every series found in the evidence, then cover each one with its models/capacities and documented functionality. Do not stop after the first series and do not summarize the remaining series away.
+- Do not include page numbers, citations, source labels, chunk IDs, or internal evidence identifiers in the answer. The application displays source pages separately.
+- Format the answer as clean Markdown for a chat interface: use meaningful headings, short paragraphs, bullets or numbered steps, bold labels where useful, and blank lines between sections. Do not use a giant heading, excessive decoration, horizontal rules, or raw Markdown inside headings.
+- If the answer is not in the context, say exactly: "I don't have enough information in the manual to answer this."
 
 Your Answer:"""
 
@@ -630,7 +683,7 @@ Your Answer:"""
             prompt=prompt,
             system_instruction=self.SYSTEM_PROMPT,
             temperature=0.2,  # low temp for factual consistency
-            max_output_tokens=2048,
+            max_output_tokens=8192,
         )
 
 
@@ -657,6 +710,17 @@ class Phase3Pipeline:
         self.retriever = Retriever()
         self.reranker = CrossEncoderReranker() if RERANKER_AVAILABLE else None
         self.generator = AnswerGenerator(self.answer_client)
+
+    @staticmethod
+    def _is_catalog_query(query: str, translated_query: str, intent: str) -> bool:
+        text = f"{query} {translated_query}".lower()
+        catalog_terms = (
+            "all series", "all the series", "every series", "every model", "all models",
+            "product range", "complete range",
+            "tamam series", "tamam model", "saari series", "sari series", "har series",
+            "series ke", "series ki", "series kay", "list of", "categories",
+        )
+        return any(term in text for term in catalog_terms)
 
     def run(self, query: str) -> Dict:
         start_time = time.time()
@@ -730,6 +794,20 @@ class Phase3Pipeline:
             chunk = self.retriever.get_chunk(chunk_id)
             if chunk:
                 candidate_chunks.append(chunk)
+
+        is_catalog_query = self._is_catalog_query(
+            query,
+            qu.translated_query,
+            qu.intent,
+        )
+        if is_catalog_query:
+            catalog_chunks = self.retriever.catalog_search(qu.product_category)
+            if catalog_chunks:
+                candidate_chunks = catalog_chunks
+                print(
+                    f"    📚 Catalog coverage enabled: {len(catalog_chunks)} overview/series passages",
+                    flush=True,
+                )
         
         if self.reranker:
             top_chunks = self.reranker.rerank(
@@ -766,6 +844,8 @@ class Phase3Pipeline:
             language=qu.language,
         )
         print(f"    ⏱️  {time.time()-t0:.2f}s")
+        print("\n🤖 FINAL ANSWER:")
+        print(answer, flush=True)
 
         total_time = time.time() - start_time
         print(f"\n{'━'*60}")

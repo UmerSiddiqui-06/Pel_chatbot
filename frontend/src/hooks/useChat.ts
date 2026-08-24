@@ -6,6 +6,7 @@ export function useChat() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loadingList, setLoadingList] = useState(true);
+  const [backendReady, setBackendReady] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -14,20 +15,33 @@ export function useChat() {
   // Initial load
   useEffect(() => {
     let cancelled = false;
+    const retryDelay = 1000;
+    const maxAttempts = 60;
+
+    const loadConversations = async () => {
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          const data = await chatService.listConversations();
+          if (cancelled) return;
+          setConversations(data);
+          setBackendReady(true);
+          if (data.length > 0) setActiveId(data[0].id);
+          return;
+        } catch {
+          if (cancelled) return;
+          if (attempt < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
+          }
+        }
+      }
+
+      if (!cancelled) setError("Unable to connect to the PEL AI backend.");
+    };
+
     setLoadingList(true);
-    chatService
-      .listConversations()
-      .then((data) => {
-        if (cancelled) return;
-        setConversations(data);
-        if (data.length > 0) setActiveId(data[0].id);
-      })
-      .catch(() => {
-        if (!cancelled) setError("Unable to load conversations.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingList(false);
-      });
+    loadConversations().finally(() => {
+      if (!cancelled) setLoadingList(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -134,6 +148,7 @@ export function useChat() {
     conversations,
     activeConversation,
     loadingList,
+    backendReady,
     sending,
     error,
     selectConversation,
