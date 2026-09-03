@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { FileText } from "lucide-react";
+import { Film, FileText } from "lucide-react";
 import type { Source } from "../../types/chat";
 
 export function SourceList({ sources }: { sources?: Source[] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [videoIndex, setVideoIndex] = useState(0);
   const detailsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -15,6 +16,21 @@ export function SourceList({ sources }: { sources?: Source[] }) {
   }, [openIndex]);
 
   if (!sources || sources.length === 0) return null;
+
+  const videoSources = Array.from(
+    new Map(
+      sources
+        .filter((source) => source.videoUrl)
+        .map((source) => [source.videoUrl, source] as const)
+    ).values()
+  );
+  const selectedVideo = videoSources[videoIndex] ?? videoSources[0];
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
+  const videoUrl = selectedVideo?.videoUrl
+    ? selectedVideo.videoUrl.startsWith("http")
+      ? selectedVideo.videoUrl
+      : `${apiBaseUrl}${selectedVideo.videoUrl}`
+    : undefined;
 
   return (
     <div ref={detailsRef} className="mt-3">
@@ -47,6 +63,36 @@ export function SourceList({ sources }: { sources?: Source[] }) {
           </div>
         ))}
       </div>
+      {selectedVideo && videoUrl && (
+        <div className="mt-3 overflow-hidden rounded-xl border border-ink-200 bg-ink-950 shadow-sm dark:border-ink-700">
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-2 text-xs text-white">
+              <Film className="h-4 w-4 shrink-0 text-pel-300" />
+              <span className="truncate font-medium">
+                Page {selectedVideo.pageRange ?? selectedVideo.page ?? "reference"}
+              </span>
+            </div>
+            <span className="shrink-0 text-[10px] uppercase tracking-widest text-ink-400">Reference video</span>
+          </div>
+          <video className="aspect-video w-full bg-black object-contain" controls preload="metadata" src={videoUrl} />
+          {videoSources.length > 1 && (
+            <div className="flex flex-wrap gap-1.5 border-t border-white/10 px-3 py-2.5">
+              {videoSources.map((source, i) => (
+                <button
+                  key={`${source.videoUrl}-${i}`}
+                  type="button"
+                  onClick={() => setVideoIndex(i)}
+                  className={`rounded-md px-2 py-1 text-[11px] transition-colors ${
+                    i === videoIndex ? "bg-pel-500 text-white" : "bg-white/10 text-ink-300 hover:bg-white/20"
+                  }`}
+                >
+                  {source.pageRange ?? `Page ${source.page ?? "reference"}`}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

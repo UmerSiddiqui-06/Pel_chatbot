@@ -3,6 +3,7 @@ from typing import List
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -28,6 +29,8 @@ def parse_uuid_or_404(id_str: str) -> str:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
 app = FastAPI(title="PEL AI Knowledge Agent API")
+
+app.mount("/videos", StaticFiles(directory=str(agent.PROJECT_ROOT / "out")), name="videos")
 
 app.add_middleware(
     CORSMiddleware,
