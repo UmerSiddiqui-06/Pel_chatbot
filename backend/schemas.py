@@ -8,6 +8,8 @@ class SourceSchema(BaseModel):
     section: Optional[str] = None
     documentType: Optional[str] = None
     url: Optional[str] = None
+    pageRange: Optional[str] = None
+    videoUrl: Optional[str] = None
 
 
 MessageRole = Literal["user", "assistant"]

@@ -12,6 +12,8 @@ export interface Source {
   section?: string;
   documentType?: string;
   url?: string;
+  pageRange?: string;
+  videoUrl?: string;
 }
 
 export type MessageRole = "user" | "assistant";

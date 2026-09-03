@@ -12,3 +12,5 @@ __pycache__/
 # Legacy backup module (current filename is misspelled; cover corrected spelling too)
 bakcup_old_model.py
 backup_old_model.py
+
+out/
